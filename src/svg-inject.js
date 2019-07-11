@@ -23,8 +23,8 @@
 
   // constants
   var __SVGINJECT = '__svgInject';
-  var ID_SUFFIX = '--inject-';
-  var ID_SUFFIX_REGEX = new RegExp(ID_SUFFIX + '\\d+', "g");
+  var ID_PREFIX = '--inject-';
+  var ID_PREFIX_REGEX = new RegExp(ID_PREFIX + '\\d+', "g");
   var LOAD_FAIL = 'LOAD_FAIL';
   var SVG_NOT_SUPPORTED = 'SVG_NOT_SUPPORTED';
   var SVG_INVALID = 'SVG_INVALID';
@@ -140,14 +140,14 @@
   }
 
 
-  // This function appends a suffix to IDs of referenced elements in the <defs> in order to  to avoid ID collision
-  // between multiple injected SVGs. The suffix has the form "--inject-X", where X is a running number which is
+  // This function prepends a prefix to IDs of referenced elements in the <defs> in order to  to avoid ID collision
+  // between multiple injected SVGs. The prefix has the form "--inject-X", where X is a running number which is
   // incremented with each injection. References to the IDs are adjusted accordingly.
-  // We assume tha all IDs within the injected SVG are unique, therefore the same suffix can be used for all IDs of one
+  // We assume tha all IDs within the injected SVG are unique, therefore the same prefix can be used for all IDs of one
   // injected SVG.
   // If the onlyReferenced argument is set to true, only those IDs will be made unique that are referenced from within the SVG
   function makeIdsUnique(svgElem, onlyReferenced) {
-    var idSuffix = ID_SUFFIX + uniqueIdCounter++;
+    var idPrefix = ID_PREFIX + uniqueIdCounter++ + "-";
     // Regular expression for functional notations of an IRI references. This will find occurences in the form
     // url(#anyId) or url("#anyId") (for Internet Explorer) and capture the referenced ID
     var funcIriRegex = /url\("?#([a-zA-Z][\w:.-]*)"?\)/g;
@@ -165,7 +165,7 @@
     var i, j;
 
     if (idElements[_LENGTH_]) {
-      // Make all IDs unique by adding the ID suffix and collect all encountered tag names
+      // Make all IDs unique by adding the ID prefix and collect all encountered tag names
       // that are IRI referenceable from properities.
       for (i = 0; i < idElements[_LENGTH_]; i++) {
         tagName = idElements[i].localName; // Use non-namespaced tag name
@@ -204,7 +204,7 @@
             if (referencedIds) {
               referencedIds[id] = 1;
             }
-            return 'url(#' + id + idSuffix + ')';
+            return 'url(#' + idPrefix + id  + ')';
           });
           if (newValue !== value) {
             element.textContent = newValue;
@@ -218,7 +218,7 @@
               if (referencedIds) {
                 referencedIds[id] = 1;
               }
-                return 'url(#' + id + idSuffix + ')';
+              return 'url(#' + idPrefix + id + ')';
             });
             if (newValue !== value) {
               element[_SET_ATTRIBUTE_](propertyName, newValue);
@@ -229,7 +229,7 @@
             var iri = element[_GET_ATTRIBUTE_](refAttrName);
             if (/^\s*#/.test(iri)) { // Check if iri is non-null and internal reference
               iri = iri.trim();
-              element[_SET_ATTRIBUTE_](refAttrName, iri + idSuffix);
+              element[_SET_ATTRIBUTE_](refAttrName, idPrefix + iri );
               if (referencedIds) {
                 // Add ID to referenced IDs
                 referencedIds[iri.substring(1)] = 1;
@@ -244,8 +244,8 @@
         // If set of referenced IDs exists, make only referenced IDs unique,
         // otherwise make all IDs unique.
         if (!referencedIds || referencedIds[idElem.id]) {
-          // Add suffix to element's ID
-          idElem.id += idSuffix;
+          // Add prefix to element's ID
+          idElem.id =  idPrefix + idElem.id;
           changed = true;
         }
       }
@@ -258,7 +258,7 @@
   // For cached SVGs the IDs are made unique by simply replacing the already inserted unique IDs with a
   // higher ID counter. This is much more performant than a call to makeIdsUnique().
   function makeIdsUniqueCached(svgString) {
-    return svgString.replace(ID_SUFFIX_REGEX, ID_SUFFIX + uniqueIdCounter++);
+    return svgString.replace(ID_PREFIX_REGEX, ID_PREFIX + uniqueIdCounter++);
   }
 
 
@@ -298,12 +298,12 @@
     // Iterate over all specified options objects and add all properties to the new options object
     for (var i = 0; i < args[_LENGTH_]; i++) {
       var argument = args[i];
-        for (var key in argument) {
-          if (argument.hasOwnProperty(key)) {
-            mergedOptions[key] = argument[key];
-          }
+      for (var key in argument) {
+        if (argument.hasOwnProperty(key)) {
+          mergedOptions[key] = argument[key];
         }
       }
+    }
     return mergedOptions;
   }
 
@@ -417,7 +417,7 @@
      * copyAttributes: If set to `true` the attributes will be copied from `img` to `svg`. Dfault value
      *     is `true`.
      * makeIdsUnique: If set to `true` the ID of elements in the `<defs>` element that can be references by
-     *     property values (for example 'clipPath') are made unique by appending "--inject-X", where X is a
+     *     property values (for example 'clipPath') are made unique by prepending "--inject-X", where X is a
      *     running number which increases with each injection. This is done to avoid duplicate IDs in the DOM.
      * beforeLoad: Hook before SVG is loaded. The `img` element is passed as a parameter. If the hook returns
      *     a string it is used as the URL instead of the `img` element's `src` attribute.
@@ -520,7 +520,7 @@
           var absUrl = getAbsoluteUrl(src);
           var useCacheOption = options.useCache;
           var makeIdsUniqueOption = options.makeIdsUnique;
-          
+
           var setSvgLoadCacheValue = function(val) {
             if (useCacheOption) {
               svgLoadCache[absUrl].forEach(function(svgLoad) {
